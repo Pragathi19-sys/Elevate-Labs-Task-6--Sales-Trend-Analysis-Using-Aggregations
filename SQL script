@@ -1,0 +1,91 @@
+-- ============================================
+-- TASK 6: Sales Trend Analysis Using Aggregations
+-- Author: Data Analyst Intern - Elevate Labs
+-- Dataset: Online_Sales_Data.csv (240 records)
+-- Date: 2024-01 to 2024-08
+-- ============================================
+
+-- 1. Create Table (if not exists)
+CREATE TABLE IF NOT EXISTS online_sales (
+    transaction_id VARCHAR(50) PRIMARY KEY,
+    order_date DATE,
+    product_category VARCHAR(100),
+    product_name VARCHAR(200),
+    units_sold INT,
+    unit_price DECIMAL(10,2),
+    total_revenue DECIMAL(10,2),
+    region VARCHAR(50),
+    payment_method VARCHAR(50)
+);
+
+-- 2. Monthly Revenue & Order Volume - Using SUBSTR (SQLite Compatible)
+SELECT
+    SUBSTR(Date, 1, 7) AS month_year,
+    CAST(SUBSTR(Date, 6, 2) AS INTEGER) AS month_num,
+    SUM("Total Revenue") AS monthly_revenue,
+    COUNT(DISTINCT "Transaction ID") AS total_orders,
+    SUM("Units Sold") AS total_units_sold,
+    ROUND(AVG("Total Revenue"), 2) AS avg_order_value
+FROM 
+    Online_Sales_Data
+GROUP BY 
+    month_year
+ORDER BY 
+    month_year ASC;
+
+-- 3. Year-wise Summary with Growth %
+WITH monthly_sales AS (
+    SELECT
+        SUBSTR(Date, 1, 7) AS month,
+        SUM("Total Revenue") AS revenue
+    FROM Online_Sales_Data
+    GROUP BY month
+)
+SELECT
+    month,
+    revenue,
+    LAG(revenue) OVER (ORDER BY month) AS prev_month_revenue,
+    ROUND(
+        ((revenue - LAG(revenue) OVER (ORDER BY month)) * 100.0 / 
+        LAG(revenue) OVER (ORDER BY month)), 2
+    ) AS growth_percent
+FROM monthly_sales;
+
+-- 4. Top Performing Months (Revenue wise)
+SELECT
+    SUBSTR(Date, 1, 7) AS month,
+    SUM("Total Revenue") AS revenue,
+    COUNT(*) AS order_count
+FROM Online_Sales_Data
+GROUP BY month
+ORDER BY revenue DESC
+LIMIT 3;
+
+-- 5. Product Category Contribution per Month
+SELECT
+    SUBSTR(Date, 1, 7) AS month,
+    "Product Category",
+    SUM("Total Revenue") AS category_revenue,
+    COUNT(*) AS orders
+FROM Online_Sales_Data
+GROUP BY month, "Product Category"
+ORDER BY month, category_revenue DESC;
+
+-- 6. Final Clean Output for Report Submission
+SELECT
+    strftime('%Y', Date) AS sales_year,
+    CASE strftime('%m', Date)
+        WHEN '01' THEN 'January'
+        WHEN '02' THEN 'February'
+        WHEN '03' THEN 'March'
+        WHEN '04' THEN 'April'
+        WHEN '05' THEN 'May'
+        WHEN '06' THEN 'June'
+        WHEN '07' THEN 'July'
+        WHEN '08' THEN 'August'
+    END AS sales_month,
+    SUM("Total Revenue") AS total_revenue,
+    COUNT(DISTINCT "Transaction ID") AS order_volume
+FROM Online_Sales_Data
+GROUP BY sales_year, sales_month
+ORDER BY sales_year, strftime('%m', Date);
